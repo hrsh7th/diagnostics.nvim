@@ -1,10 +1,19 @@
-defx-diagnostics(experimental)
+diagnostics.nvim
 ===
-defx.nvim `diagnostics` column plugin.
+diagnostics service for vim.
 
-warning
+Supported plugin
 ===
-this plugin is very experimental.
 
-currently implementation is too slow and support typescript only.
+## denite.nvim
+- `:Denite diagnostics:`expand('%:p')``
+
+## defx.nvim
+- `Defx -columns=diagnostic:mark:filename:type`
+
+Warning
+===
+This plugin is very experimental.
+
+Currently supported is typescript only.
 

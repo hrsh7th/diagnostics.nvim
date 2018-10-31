@@ -1,7 +1,9 @@
 let g:diagnostics#typescript#marker = 'tsconfig.json'
-let g:diagnostics#typescript#command = ['npx', 'tsc', '--watch', '--noEmit']
-let g:diagnostics#typescript#clear_pattern = 'Starting.\{-} compilation'
-let g:diagnostics#typescript#diagnostic_pattern = '^\(.\+\)(\d\+,\d\+): error TS\d\+'
+let g:diagnostics#typescript#command = ['npx', 'tsc', '--watch', '--noEmit', '--pretty', 'false']
+let g:diagnostics#typescript#clear_pattern = 'File change detected.'
+let g:diagnostics#typescript#updated_pattern = 'Found \d\+ errors.'
+let g:diagnostics#typescript#diagnostic_pattern = '^\(.\{-}\): \(.\{-}\): \(.\{-}\)$'
+let g:diagnostics#typescript#location_pattern = '^\(.\{-}\)(\(\d\+\),\(\d\+\))$'
 let g:diagnostics#typescript#job = {}
 
 function! diagnostics#typescript#detect(path)
@@ -9,25 +11,19 @@ function! diagnostics#typescript#detect(path)
   return fnamemodify(marker, ':p:h')
 endfunction
 
-function! diagnostics#typescript#get(path)
-  let cwd = diagnostics#typescript#detect(a:path)
-  echomsg cwd
-  if cwd == ''
-    return []
-  endif
-
+function! diagnostics#typescript#get(cwd)
   if exists('g:diagnostics#typescript#job.cwd')
-    " Skip for already process started.
-    if g:diagnostics#typescript#job.cwd == cwd
+    " Return diagnostics from current job.
+    if g:diagnostics#typescript#job.cwd == a:cwd
       return g:diagnostics#typescript#job.diagnostics
     endif
 
-    " Stop current process if other process needed.
+    " Stop current job if other job requested.
     call g:diagnostics#typescript#job.stop()
   endif
 
   " Create and start job.
-  let job = diagnostics#job(g:diagnostics#typescript#command, cwd, {
+  let job = diagnostics#job(g:diagnostics#typescript#command, a:cwd, {
         \   'on_stdout': function('diagnostics#typescript#parse')
         \ })
   call job.start()
@@ -37,24 +33,38 @@ function! diagnostics#typescript#get(path)
   return []
 endfunction
 
-function! diagnostics#typescript#parse(job, output)
+function! diagnostics#typescript#parse(job, outputs)
   let diagnostics = a:job.diagnostics
+  for output in a:outputs
+    " Line is diagnostics.
+    let matches = matchlist(output, g:diagnostics#typescript#diagnostic_pattern)
+    if len(matches) != 0
+      let location = matchlist(matches[1], g:diagnostics#typescript#location_pattern)
+      call add(diagnostics, diagnostics#item({
+            \ 'path': a:job.cwd . '/' . location[1],
+            \ 'line': location[2],
+            \ 'col': location[3],
+            \ 'level': matches[2],
+            \ 'message': matches[3]
+            \ }))
+      continue
+    endif
 
-  " diagnostics"
-  let matches = matchlist(a:output, '^\(.\+\)(\d\+,\d\+)')
-  if exists('matches[1]')
-    call add(diagnostics, diagnostics#item(
-          \ a:job.cwd . '/' . matches[1],
-          \ 'error',
-          \ ''
-          \ ))
-  endif
+    " Line is clear marker.
+    let matches = matchlist(output, g:diagnostics#typescript#clear_pattern)
+    if len(matches) != 0
+      let diagnostics = []
+      continue
+    endif
 
-  " clear diagnostics.
-  if matchstr(a:output, '.*' . g:diagnostics#typescript#clear_pattern . '.*')
-    echomsg 'clear diagnostics' . a:output
-    let diagnostics = []
-  endif
+    " Line is updated marker.
+    let matches = matchlist(output, g:diagnostics#typescript#updated_pattern)
+    if len(matches) != 0
+      echomsg printf('TypeScript diagnostics updated: %s', a:job.cwd)
+      continue
+    endif
+
+  endfor
 
   return diagnostics
 endfunction
