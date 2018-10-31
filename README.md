@@ -6,10 +6,14 @@ Supported plugin
 ===
 
 ## denite.nvim
-- ``:Denite diagnostics:`expand('%:p')```
+```
+:Denite diagnostics:`expand('%:p')`
+```
 
 ## defx.nvim
-- `Defx -columns=diagnostic:mark:filename:type`
+```
+:Defx -columns=diagnostic:mark:filename:type
+```
 
 Warning
 ===
