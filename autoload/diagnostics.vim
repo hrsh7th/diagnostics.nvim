@@ -1,31 +1,37 @@
-let s:Job = {}
-
-let s:types = [
-      \ 'typescript'
-      \ ]
+let s:sfile = expand('<sfile>:p')
 
 function! diagnostics#detect(path)
   try
-    let type = ''
-    let cwd = ''
-    for candidate in s:types
-      let cwd = diagnostics#{candidate}#detect(a:path)
-      if cwd != ''
-        let type = candidate
-        break
-      endif
-    endfor
-    return { 'type': type, 'cwd': cwd }
+    try
+      for candidate in diagnostics#types()
+        let cwd = diagnostics#{candidate}#detect(a:path)
+        if cwd != ''
+          return { 'type': candidate, 'cwd': cwd }
+        endif
+      endfor
+    catch
+    endtry
+  catch
   endtry
+  return { 'type': '', 'cwd': '' }
+endfunction
+
+function! diagnostics#start(path)
+  let detect = diagnostics#detect(a:path)
+  if detect['type'] == ''
+    return
+  endif
+
+  call diagnostics#{detect['type']}#start(detect['cwd'])
 endfunction
 
 function! diagnostics#get(path)
-  try
-    let detect = diagnostics#detect(a:path)
-    return diagnostics#{detect['type']}#get(detect['cwd'])
-  endtry
+  let detect = diagnostics#detect(a:path)
+  if detect['type'] == ''
+    return []
+  endif
 
-  return []
+  return diagnostics#{detect['type']}#get(detect['cwd'])
 endfunction
 
 function! diagnostics#item(params)
@@ -38,9 +44,17 @@ function! diagnostics#item(params)
         \ }
 endfunction
 
+function! diagnostics#types()
+  let types = glob(printf('%s/diagnostics/*.vim', fnamemodify(s:sfile, ':h')), v:true, v:true)
+  let types = map(types, 'fnamemodify(v:val, ":t:r")')
+  return types
+endfunction
+
 function! diagnostics#job(cmd, cwd, option)
   return s:Job.new(a:cmd, a:cwd, a:option)
 endfunction
+
+let s:Job = {}
 
 function! s:Job.new(cmd, cwd, option)
   let object = copy(s:Job)

@@ -8,29 +8,31 @@ let g:diagnostics#typescript#job = {}
 
 function! diagnostics#typescript#detect(path)
   let marker = findfile(g:diagnostics#typescript#marker, fnamemodify(a:path, ':p:h') . ';')
+  if marker == ''
+    return ''
+  endif
   return fnamemodify(marker, ':p:h')
 endfunction
 
-function! diagnostics#typescript#get(cwd)
-  if exists('g:diagnostics#typescript#job.cwd')
-    " Return diagnostics from current job.
-    if g:diagnostics#typescript#job.cwd == a:cwd
-      return g:diagnostics#typescript#job.diagnostics
-    endif
-
-    " Stop current job if other job requested.
-    call g:diagnostics#typescript#job.stop()
+function! diagnostics#typescript#start(cwd)
+  if exists('g:diagnostics#typescript#job.cwd') && g:diagnostics#typescript#job.cwd == a:cwd
+    return
   endif
 
   " Create and start job.
   let job = diagnostics#job(g:diagnostics#typescript#command, a:cwd, {
         \   'on_stdout': function('diagnostics#typescript#parse')
         \ })
+  echomsg 'TypeScript diagnostics service started: ' . job.cwd
   call job.start()
   let g:diagnostics#typescript#job = job
+endfunction
 
-  " Return empty diagnostics at first.
-  return []
+function! diagnostics#typescript#get(cwd)
+  if !exists('g:diagnostics#typescript#job.diagnostics')
+    return []
+  endif
+  return g:diagnostics#typescript#job.diagnostics
 endfunction
 
 function! diagnostics#typescript#parse(job, outputs)

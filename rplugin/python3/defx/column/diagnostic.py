@@ -18,7 +18,7 @@ class Column(Base):
         candidate_path = str(candidate['action__path'])
 
         if candidate.get('is_root', False):
-            self.vim.call('diagnostics#get', candidate_path)
+            self.vim.call('diagnostics#start', candidate_path)
             return default
 
         diagnostics = self.vim.call('diagnostics#get', candidate_path)
